@@ -8,6 +8,8 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 import os.bson.BSON;
+import os.json.JSON;
+import os.json.JsonParseError;
 
 
 
@@ -58,12 +60,21 @@ public class Query implements IQuery{
     public static Query start(String key) {
         return (Query) (new Query()).put(key);
     }
-	
-    /**
-     * Creates a builder with an empty query
-     */
+    
+    public static Query js(String query) {
+        try {
+			return new Query((BasicDBObject)JSON.decode(query,BasicDBObject.class));
+		} catch (JsonParseError e) {
+			return new Query();
+		}
+    }
+    
     public Query() {
-        _query 	= new BasicDBObject();
+    	this(new BasicDBObject());
+    }
+    
+    public Query(BasicDBObject query) {
+        _query 	= query;
         _fields = new BasicDBObject();
         _sort 	= new BasicDBObject();
         _limit 	= 0;
@@ -180,47 +191,30 @@ public class Query implements IQuery{
 		_sort.put("$natural", order.value);
 		return this;
 	}
-	/**
-     * Adds a field to selection list 
-     * @param fields MongoDB document field
-     * @return Returns the current Query
-     */
-	public Query select(String... fields){
-		for(String field:fields){
-			select(field);
-		}
-		return this;
-	}
+	
 	/**
      * Adds a field to selection list 
      * @param field MongoDB document field
      * @return Returns the current Query
      */
 	public Query select(String field){
-		_fields.put(field, 1);
-		return this;
-	}
-	
-	/**
-     * Exclude a field to selection list 
-     * @param key MongoDB document field
-     * @return Returns the current Query
-     */
-	public Query except(String field){
-		_fields.put(field, 0);
-		return this;
-	}
-	/**
-     * Adds a field to selection list 
-     * @param fields MongoDB document field
-     * @return Returns the current Query
-     */
-	public Query except(String... fields){
-		for(String field:fields){
-			except(field);
+		field = field.replaceAll(" ", "");
+		if(field.indexOf(',')>0){
+			String[] fields = field.split(",");
+			for (int i = 0; i < fields.length; i++) {
+				if(fields[i].charAt(0)=='!'){
+					_fields.put(fields[i].substring(1), 0);
+				}else{
+					_fields.put(fields[i], 1);
+				}
+			}
+		}else{
+			_fields.put(field, 1);
 		}
 		return this;
 	}
+	
+	
     /**
      * Adds a new key to the query if not present yet.
      * Sets this key as the current key.
@@ -517,5 +511,8 @@ public class Query implements IQuery{
     public byte[] toBson() {
     	return BSON.encode(toMap());
     }
-    	
+    
+    public String toString(){
+    	return JSON.encode(toMap());
+    }
 }

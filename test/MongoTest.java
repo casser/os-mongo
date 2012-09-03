@@ -2,6 +2,7 @@
 
 import java.util.Arrays;
 import java.util.Date;
+import java.util.Map;
 import java.util.UUID;
 
 import junit.framework.Assert;
@@ -28,14 +29,14 @@ public class MongoTest {
 	
 	@BeforeClass
 	public static void setUpBeforeClass() throws Exception {
-		client 		= new Mongo("127.0.0.1", 27017);
+		client 		= new Mongo("192.168.1.105", 27017);
 		database 	= client.getDB("test");
 		collection 	= database.getCollection("col");
 	}
 	
 	@AfterClass
 	public static void tearDownAfterClass() throws Exception {
-		client.shutdown();
+		client.close();
 	}
 	
 	@Test
@@ -47,13 +48,13 @@ public class MongoTest {
 				Query.start("_id").is(new BsonId("ae19844f000000000cbc8bdf")).and("value").is("V2").getQuery(),	
 			}
 		);
-		print(result);
+		JSON.print(result);
 		Assert.assertTrue(result);
 	}
 	
 	@Test
 	public void testUpdate() throws Exception {
-		Long result = collection.update(
+		Integer result = collection.update(
 			Query.start("_id").in(Arrays.asList(
 				new BsonId("ae19844f000000000cbc8bde"),
 				new BsonId("ae19844f000000000cbc8bdf")
@@ -62,31 +63,42 @@ public class MongoTest {
 				Query.start("value").is("updated").and("generated").is(UUID.fromString("00000000-7690-4535-0000-0000aece4b30")).and("date").is(new Date(1334064845619L)).getQuery()
 			).getQuery()
 		);
-		print(result);
-		Assert.assertEquals(2L,result.longValue());
+		JSON.print(result);
+		Assert.assertEquals(2,result.longValue());
 	}
 	
 	@Test
 	public void testFind() throws Exception {
 		Query q = 
 			Query.start().
-			select("_id").limit(1);
-		print(q.getQuery());
+			select("!_id,!value").limit(1);
+		print(q);
 		Page<?> result = collection.find(q);
-		print(result);
-		Assert.assertEquals(1L,result.size());
+		JSON.print(result);
+		Assert.assertEquals(1,result.size());
+	}
+	
+	
+	@Test
+	@SuppressWarnings("unchecked")
+	public void testFind2() throws Exception {
+		Page<Map<String, Object>> result = (Page<Map<String, Object>>) collection.find("{_id:BsonId(ae19844f000000000cbc8bde)}","_id,value",1,0);
+		JSON.print(result);
+		Assert.assertEquals(1,result.size());
+		Assert.assertEquals(result.get(0).get("_id").toString(),"ae19844f000000000cbc8bde");
+		Assert.assertEquals(result.get(0).get("value").toString(),"updated");
 	}
 	
 	@Test
 	public void testDelete() throws Exception {
-		Long result = collection.delete(
+		Integer result = collection.delete(
 			Query.start("_id").in(Arrays.asList(
 				new BsonId("ae19844f000000000cbc8bde"),
 				new BsonId("ae19844f000000000cbc8bdf")
 			)).getQuery()
 		);
 		print(result);
-		Assert.assertEquals(2L,result.longValue());
+		Assert.assertEquals(2,result.longValue());
 	}
 		
 	@Test

@@ -4,13 +4,14 @@ import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 
+import os.bson.BsonEncodable;
 import os.bson.BsonId;
 import os.bson.BsonModel;
 import os.bson.BsonModel.Entity;
 import os.utils.Types.Property.Index;
 
 
-@Entity(version=1)
+@Entity(collection="users",version=1)
 public class User implements BsonModel{
 	
 	@Override
@@ -21,16 +22,6 @@ public class User implements BsonModel{
 	@Override
 	public void id(Object value) {
 		id = (BsonId) value;
-	}
-	
-	private BsonModel.Info info;
-	@Override
-	public BsonModel.Info info() {
-		return info;
-	}
-	@Override
-	public void info(BsonModel.Info info) {
-		this.info = info;
 	}
 	
 	public static class Mappings extends EnumMap<Mappings.Key,Mappings.Value> {
@@ -111,13 +102,14 @@ public class User implements BsonModel{
 	private Inbox inbox;
 	
 	@Index(0)
+	@BsonEncodable.Ignore
 	public BsonId getId() {
 		return id;
 	}
-	
 	public void setId(BsonId id) {
 		this.id = id;
 	}
+	
 	@Index(1)
 	public String getEmail() {
 		return email;
@@ -125,6 +117,7 @@ public class User implements BsonModel{
 	public void setEmail(String email) {
 		this.email = email;
 	}
+	
 	@Index(2)
 	public Mappings getMappings() {
 		return mappings;
@@ -132,6 +125,7 @@ public class User implements BsonModel{
 	public void setMappings(Mappings mappings) {
 		this.mappings = mappings;
 	}
+	
 	@Index(3)
 	public Neighbors getNeighbors() {
 		return neighbors;
@@ -139,6 +133,7 @@ public class User implements BsonModel{
 	public void setNeighbors(Neighbors neighbors) {
 		this.neighbors = neighbors;
 	}
+	
 	@Index(4)
 	public Inbox getInbox() {
 		return inbox;
@@ -146,6 +141,7 @@ public class User implements BsonModel{
 	public void setInbox(Inbox inbox) {
 		this.inbox = inbox;
 	}
+	
 	@Index(5)
 	public Outbox getOutbox() {
 		return outbox;

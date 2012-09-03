@@ -15,7 +15,7 @@ import os.mongo.ops.Result;
 
 
 
-public class Collection<T extends BsonModel> {
+public class Collection<T> {
 	
 	private Database 	database;
 	private String 		name;
@@ -30,23 +30,23 @@ public class Collection<T extends BsonModel> {
 	}
 	
 	public Collection( Database database, String name) {
-		this(database,name,null);
-	}
-	
-	public Collection( Database database, String name, Class<T> clazz) {
 		this.database 	= database;
 		this.name 		= name;
+	}
+	
+	public Collection( Database database, Class<T> clazz) {
+		this.database 	= database;
+		this.name 		= clazz.getName().toLowerCase();
 		this.clazz 		= clazz;
+		
+		if(clazz.isAnnotationPresent(BsonModel.Entity.class)){
+			BsonModel.Entity entity = clazz.getAnnotation(BsonModel.Entity.class);
+			this.name = entity.collection();
+		}
 	}
 	
 	public T get(Object query) throws Exception {
-		Page<T> page = null;
-		if(query!=null && IQuery.class.isAssignableFrom(query.getClass())){
-			IQuery q = (IQuery)query;
-			page = find(q.getQuery(), q.getFields(), 1, q.getSkip(), true);
-		}else{
-			page = find(query, null, 1, 0, true);
-		}
+		Page<T> page = find(query, null, 1, 0, true);
 		if(page.size()>0){
 			return page.get(0);
 		}else {
@@ -59,27 +59,78 @@ public class Collection<T extends BsonModel> {
 	}
 	
 	public Page<T> find(Object query) throws Exception {
-		if(query!=null && IQuery.class.isAssignableFrom(query.getClass())){
-			IQuery q = (IQuery)query;
-			return find(q.getQuery(), q.getFields(), q.getLimit(), q.getSkip());
-		}else{
-			return find(query, null, 1000, 0);
-		}
+		return find(query, null, -1, -1);
 	}
 		
-	public Page<T> find(Object query, Object fields, int limit, int skip) throws Exception{
+	public Page<T> find(Object query, String fields, int limit, int skip) throws Exception{
 		return find(query,fields,limit,skip,false);
 	}
 	
-	public Page<T> find(Object query, Object fields, int limit, int skip, boolean single) throws Exception{
+	public Page<T> find(Object query, String fields, int limit, int skip, boolean single) throws Exception{
+		if(query!=null && query instanceof String){
+			String queryString = (String)query;
+			if(queryString.charAt(0)=='{'){
+				query = Query.js((String)query);
+			}else if(queryString.toLowerCase().matches("[a-f0-9]{24}")){
+				query = Query.start("_id").is(new BsonId(queryString));
+			}
+		}else 
+		if(	query!=null &&
+			!(query instanceof byte[]) &&
+			!IQuery.class.isAssignableFrom(query.getClass()) && 
+			!Map.class.isAssignableFrom(query.getClass())
+		){
+			query = Query.start("_id").is(query);
+		}
+		if(query!=null && (query instanceof Query)){
+			Query q = (Query)query;
+			if(fields!=null){
+				q.select(fields);
+			}
+			if(limit>-1){
+				q.limit(limit);
+			}
+			if(skip>-1){
+				q.limit(skip);
+			}
+		}
+	    if(query!=null && IQuery.class.isAssignableFrom(query.getClass())){
+			IQuery q = (IQuery)query;
+			return findInternal(q.getQuery(), q.getFields(), q.getLimit(), q.getSkip(), single);
+		}else{
+			return findInternal(query, Query.start().select(fields), limit, skip, single);
+		}
+	}
+	
+	@SuppressWarnings("unchecked")
+	private Page<T> findInternal(Object query, Object fields, int limit, int skip, boolean single) throws Exception{	
 		OpQuery q = new OpQuery(name(), query, fields, limit, skip, 0);
-    	OpReply r = database.getMongo().call(q);
-    	
+    	OpReply r = database.getMongo().send(q);
+    	if(query instanceof byte[]){
+    		query = BSON.decode((byte[])query);
+		}
+    	if(fields instanceof byte[]){
+    		fields = BSON.decode((byte[])query);
+		}
     	List<T> data = (List<T>) r.getResults(clazz);
     	if(single || r.getCursorID()==0){
-    		return new Page<T>(new Integer(skip).longValue(),new Integer(data.size()).longValue(),data);
+    		return new Page<T>(
+    			(Map<String, Object>) query,
+    			(Map<String, Integer>) fields,
+    			new Integer(skip),
+    			new Integer(limit),
+    			new Integer(data.size()),
+    			data
+    		);
     	}else{
-    		return new Page<T>(new Integer(skip).longValue(),count(query),data);
+    		return new Page<T>(
+    			(Map<String, Object>) query,
+    			(Map<String, Integer>) fields,
+    			new Integer(skip),
+    			new Integer(limit),
+    			count(query),
+    			data
+    		);
     	}
     }
     
@@ -89,40 +140,40 @@ public class Collection<T extends BsonModel> {
     	return !r.getResult(Result.class).hasError();
     }
     
-    public Long count() throws Exception {
+    public Integer count() throws Exception {
     	return count(null);
     }
     
-	public Long count(Object query) throws Exception {
+	public Integer count(Object query) throws Exception {
 		Query q = Query.start("count").is(name);
 		if(query!=null){
 			q.and("query").is(query);
 		};
 		Map<String,Object> r = database.command(q.getQuery());
-		return ((Double)r.get("n")).longValue();
+		return ((Double)r.get("n")).intValue();
 	}
 	
-    public Long update(Object query, Object document) throws Exception {
-    	Long count = count(query);
+    public Integer update(Object query, Object document) throws Exception {
+    	Integer count = count(query);
 		if(count>=0){
 	    	OpUpdate q = new OpUpdate(name(),query,document);
 	    	OpReply  r = call(q);
 	    	return r.getResult(Result.class).hasError()?0:count;
 		}
-		return 0L;
+		return 0;
     }
     
-    public Long delete(Object query) throws Exception {
+    public Integer delete(Object query) throws Exception {
     	if(IQuery.class.isAssignableFrom(query.getClass())){
     		query = ((IQuery)query).getQuery();
 		}
-    	Long count = count(query);
+    	Integer count = count(query);
 		if(count>0){
 			OpDelete q = new OpDelete(name(),query);
     		OpReply  r = call(q);
     		return r.getResult(Result.class).hasError()?0:count;
 		}
-    	return 0L;
+    	return 0;
     }
     
     public Boolean save(Map<String,Object> document) throws Exception {
@@ -140,7 +191,7 @@ public class Collection<T extends BsonModel> {
     	return !rs.hasError();
     }
     
-	public Boolean save(T document) throws Exception {
+	public <F extends BsonModel> Boolean save(F document) throws Exception {
 		
 		if(document.id()==null){
 			document.id(BsonId.get());
@@ -148,22 +199,17 @@ public class Collection<T extends BsonModel> {
 		
 		byte[] bytes = BSON.encode(document);
 		
-		if((document.info()!=null && document.info().isModified()) || document.info()==null){
-			Object query = Query.start("_id").is(document.id()).getQuery();
-			OpUpdate q  = new OpUpdate(name(),query,bytes,true,1);
-	    	OpReply  r  = call(q);
-	    	Result   rs = r.getResult(Result.class);
-	    	if(document.info()!=null){
-	    		document.info().fresh(rs.getUpdatedExisting());
-	    	}
-	    	return !rs.hasError();
-		}
 		
-		return false;
+		Object query = Query.start("_id").is(document.id()).getQuery();
+		OpUpdate q  = new OpUpdate(name(),query,bytes,true,1);
+    	OpReply  r  = call(q);
+    	Result   rs = r.getResult(Result.class);
+    	
+    	return !rs.hasError();		
     }
         
-	private OpReply call(Message message) throws Exception{
-		return database.getMongo().call(message);
+	private OpReply call(Message message) throws Exception {
+		return database.getMongo().send(message);
 	}
 	
 	private String name(){

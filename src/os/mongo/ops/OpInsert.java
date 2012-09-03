@@ -49,7 +49,6 @@ public class OpInsert extends CollMsg {
 		bin.writeCString( getCollection() );
 		for( Object document : documents ) {
 			byte[] bytes = BSON.encode( document );
-			BytesUtil.printHexString(bytes);
 			bin.writeBytes(bytes);
 		}
 	}
