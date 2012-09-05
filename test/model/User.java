@@ -4,14 +4,14 @@ import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 
-import os.bson.BsonEncodable;
 import os.bson.BsonId;
 import os.bson.BsonModel;
-import os.bson.BsonModel.Entity;
+import os.bson.annotations.BsonDocument;
+import os.bson.annotations.BsonIgnore;
 import os.utils.Types.Property.Index;
 
 
-@Entity(collection="users",version=1)
+@BsonDocument(collection="users",version=1)
 public class User implements BsonModel{
 	
 	@Override
@@ -102,7 +102,7 @@ public class User implements BsonModel{
 	private Inbox inbox;
 	
 	@Index(0)
-	@BsonEncodable.Ignore
+	@BsonIgnore
 	public BsonId getId() {
 		return id;
 	}

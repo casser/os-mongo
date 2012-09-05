@@ -198,18 +198,20 @@ public class Query implements IQuery{
      * @return Returns the current Query
      */
 	public Query select(String field){
-		field = field.replaceAll(" ", "");
-		if(field.indexOf(',')>0){
-			String[] fields = field.split(",");
-			for (int i = 0; i < fields.length; i++) {
-				if(fields[i].charAt(0)=='!'){
-					_fields.put(fields[i].substring(1), 0);
-				}else{
-					_fields.put(fields[i], 1);
+		if(field!=null){
+			field = field.replaceAll(" ", "");
+			if(field.indexOf(',')>0){
+				String[] fields = field.split(",");
+				for (int i = 0; i < fields.length; i++) {
+					if(fields[i].charAt(0)=='!'){
+						_fields.put(fields[i].substring(1), 0);
+					}else{
+						_fields.put(fields[i], 1);
+					}
 				}
+			}else{
+				_fields.put(field, 1);
 			}
-		}else{
-			_fields.put(field, 1);
 		}
 		return this;
 	}

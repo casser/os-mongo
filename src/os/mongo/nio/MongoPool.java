@@ -23,7 +23,7 @@ public class MongoPool {
 	}
 	
     public MongoPool(String host, int port, int poolSize){
-    	
+    	connect(host, port, poolSize);
     }
     
     public MongoPool(String host, int port) {

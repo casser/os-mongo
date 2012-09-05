@@ -33,7 +33,7 @@ public class MongoChannel {
     }
     
     public OpReply send(Message message) {
-    	return send(message,2000);
+    	return send(message,10000);
     }
     
     public synchronized OpReply send(Message message, int timeout) {
@@ -65,12 +65,15 @@ public class MongoChannel {
 		        input.read(buf, 4, availableBytesLength);
 				BytesUtil.writeInt(buf, 0, packageBytesLength);
 				reply = (OpReply)Messages.valueOf(buf);
-				Thread.sleep(200);
 			}
 	    }catch (Exception e){
 	    	e.printStackTrace(System.err);
 	    }
 	    available = true;
+	    if(reply.isFailed()){
+	    	System.err.print(reply.getDocuments());
+	    	return null;
+	    }
 	    return reply;
     }
     

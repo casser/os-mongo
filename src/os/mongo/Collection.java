@@ -6,6 +6,7 @@ import java.util.Map;
 import os.bson.BSON;
 import os.bson.BsonId;
 import os.bson.BsonModel;
+import os.bson.annotations.BsonDocument;
 import os.mongo.ops.OpDelete;
 import os.mongo.ops.OpInsert;
 import os.mongo.ops.OpQuery;
@@ -36,11 +37,11 @@ public class Collection<T> {
 	
 	public Collection( Database database, Class<T> clazz) {
 		this.database 	= database;
-		this.name 		= clazz.getName().toLowerCase();
+		this.name 		= clazz.getSimpleName().toLowerCase();
 		this.clazz 		= clazz;
 		
-		if(clazz.isAnnotationPresent(BsonModel.Entity.class)){
-			BsonModel.Entity entity = clazz.getAnnotation(BsonModel.Entity.class);
+		if(clazz.isAnnotationPresent(BsonDocument.class)){
+			BsonDocument entity = clazz.getAnnotation(BsonDocument.class);
 			this.name = entity.collection();
 		}
 	}
@@ -89,22 +90,29 @@ public class Collection<T> {
 			}
 			if(limit>-1){
 				q.limit(limit);
+			}else{
+				limit = 100;
 			}
 			if(skip>-1){
-				q.limit(skip);
+				q.skip(skip);
+			}else{
+				skip = 0;
 			}
 		}
 	    if(query!=null && IQuery.class.isAssignableFrom(query.getClass())){
 			IQuery q = (IQuery)query;
 			return findInternal(q.getQuery(), q.getFields(), q.getLimit(), q.getSkip(), single);
 		}else{
-			return findInternal(query, Query.start().select(fields), limit, skip, single);
+			return findInternal(query, Query.start().select(fields).getFields(), limit, skip, single);
 		}
 	}
 	
 	@SuppressWarnings("unchecked")
-	private Page<T> findInternal(Object query, Object fields, int limit, int skip, boolean single) throws Exception{	
-		OpQuery q = new OpQuery(name(), query, fields, limit, skip, 0);
+	private Page<T> findInternal(Object query, Object fields, int limit, int skip, boolean single) throws Exception{
+		int l = limit ==-1?100:limit;
+		int s = skip  ==-1?0  :skip;
+		
+		OpQuery q = new OpQuery(name(), query, fields, l, s, 0);
     	OpReply r = database.getMongo().send(q);
     	if(query instanceof byte[]){
     		query = BSON.decode((byte[])query);
@@ -117,8 +125,8 @@ public class Collection<T> {
     		return new Page<T>(
     			(Map<String, Object>) query,
     			(Map<String, Integer>) fields,
-    			new Integer(skip),
-    			new Integer(limit),
+    			new Integer(s),
+    			new Integer(l),
     			new Integer(data.size()),
     			data
     		);
@@ -126,8 +134,8 @@ public class Collection<T> {
     		return new Page<T>(
     			(Map<String, Object>) query,
     			(Map<String, Integer>) fields,
-    			new Integer(skip),
-    			new Integer(limit),
+    			new Integer(s),
+    			new Integer(l),
     			count(query),
     			data
     		);
@@ -149,7 +157,7 @@ public class Collection<T> {
 		if(query!=null){
 			q.and("query").is(query);
 		};
-		Map<String,Object> r = database.command(q.getQuery());
+		Map<String,Object> r = database.command(q);
 		return ((Double)r.get("n")).intValue();
 	}
 	
@@ -217,7 +225,7 @@ public class Collection<T> {
 	}
 	
 	public Boolean drop() throws Exception {
-		Map<String,Object> r = database.command(Query.start("drop").is(name).getQuery());
+		Map<String,Object> r = database.command(Query.start("drop").is(name));
 		return r.get("ok").equals(1.0);
 	}
 	

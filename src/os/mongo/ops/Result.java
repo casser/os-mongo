@@ -10,6 +10,7 @@ public class Result {
 	private Double ok;
 	private Boolean updatedExisting;
 	private Object upserted;
+	private Long lastOp;
 	
 	public Integer getConnectionId() {
 		return connectionId;
@@ -47,6 +48,14 @@ public class Result {
 	public void setUpserted(Object upserted) {
 		this.upserted = upserted;
 	}
+	
+	public Long getLastOp() {
+		return lastOp;
+	}
+	public void setLastOp(Long lastOp) {
+		this.lastOp = lastOp;
+	}
+	
 	public Boolean hasError() {
 		return err!=null;
 	}

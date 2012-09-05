@@ -2,9 +2,9 @@
 
 <project name="os-mongo" default="build" basedir=".">
     <path id="project.classpath">
-        <fileset dir="lib">
-            <include name="*.jar"/>
-        </fileset>
+    	<fileset dir="../os-json/dist">
+    	            <include name="*.jar"/>
+    	        </fileset>
         <fileset dir="../os-bson/dist">
             <include name="*.jar"/>
         </fileset>
